@@ -1,123 +1,107 @@
-Here's a polished **README.md** in English for your project:
+### **Updated README.md**  
+
+Here's the updated content for your `README.md` file, with the newly added screenshots for better clarity and a visual guide.
 
 ---
 
-# 🎙️ **Interview Game Bot**
+# 🎙️ Interview Game Bot  
 
-**Interview Game Bot** is a Telegram bot designed for an engaging game of interviews. One user acts as the interviewer, while another plays the guest. The bot provides random questions, supports categories, and allows users to add their own questions.
-
----
-
-## 📋 **Features**
-
-- ✨ **/start**: Displays a welcome message with instructions for using the bot.
-- ✨ **/question**: Generates a random question from the selected category.
-- ✨ **/category <normal|blitz>**: Switches between question categories.
-- ✨ **/add_question <your_question>**: Allows users to add custom questions to the current category.
+**Interview Game Bot** – це бот для гри в інтерв'юерів і гостей у Telegram. Використовуйте його для веселих і корисних інтерактивних ігор, підготовки до співбесід або просто дружніх розмов!  
 
 ---
 
-## 🛠️ **Setup and Installation**
+## 📋 **Що вміє бот?**  
 
-### **1. Clone the repository**
-```bash
-git clone <YOUR_REPOSITORY_URL>
-cd interview_game_bot
-```
+1. 🎲 **Визначати ролі**:  
+   Киньте кубики, щоб випадково обрати, хто буде **Інтерв'юером**, а хто **Гостем**.  
 
-### **2. Set up a virtual environment**
-```bash
-python -m venv venv
-source venv/bin/activate  # For Linux/Mac
-venv\Scripts\activate     # For Windows
-```
+   ![Вибір гравців](img/players.png)  
 
-### **3. Install dependencies**
-```bash
-pip install -r requirements.txt
-```
+2. 📝 **Генерувати питання**:  
+   Отримайте 10 випадкових запитань у двох категоріях:  
+   - ⚡ **Бліц**: Швидкі та гострі запитання.  
+   - 📚 **Нормал**: Класичні інтерв'ю питання.  
 
-### **4. Create the `.env` file**
-Create a file named `.env` in the root directory and add your Telegram bot token:
-```env
-TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN
-```
+   ![Запитання](img/questions.png)  
 
-### **5. Run the bot**
-```bash
-python fixed_bot.py
-```
+3. ➕ **Додавати свої запитання**:  
+   Розширте гру, додавши власні запитання до обраної категорії.  
 
----
+4. 🕹️ **Зручне меню з кнопками**:  
+   Усі команди доступні через інтерактивне меню:  
+   - **Отримати питання**  
+   - **Додати питання**  
+   - **Бліц**  
+   - **Нормал**  
+   - **Кинути кубики**  
 
-## 🧪 **Testing**
+   ![Меню бота](img/menu.png)  
 
-The project includes both **unit tests** and **functional tests**. Run them as follows:
+5. 🔄 **Перемикання категорій**:  
+   Легко перемикайтесь між категоріями питань за допомогою кнопок.  
 
-### **1. Install testing dependencies**
-```bash
-pip install pytest pytest-asyncio
-```
-
-### **2. Run tests**
-Run unit tests:
-```bash
-python -m unittest test_bot.py
-```
-
-Run functional tests:
-```bash
-pytest test_functional.py
-```
+   ![Перемикання категорій](img/switch_question_type.png)  
 
 ---
 
-## 📂 **Project Structure**
+## 🛠️ **Як користуватися ботом?**  
 
-```plaintext
-interview_game_bot/
-│
-├── bot.py               # Main bot code
-├── fixed_bot.py         # Enhanced and bug-fixed bot
-├── test_bot.py          # Unit tests
-├── test_functional.py   # Functional tests
-├── requirements.txt     # Project dependencies
-├── .env                 # Environment variables file
-├── README.md            # Project documentation
-└── test_questions.db    # Test database
-```
+1. **Запуск бота**  
+   Введіть `/start` або використовуйте кнопки для навігації.  
+   ![Про бота](img/about.png)  
 
----
+2. **Вибір ролей**  
+   Натисніть **"Кинути кубики"** та введіть імена двох гравців. Бот визначить ролі автоматично!  
 
-## 📝 **How to Add Questions**
+3. **Отримання питань**  
+   Оберіть категорію **"Бліц"** або **"Нормал"**, щоб отримати 10 унікальних запитань.  
 
-1. Use the `/add_question <your_question>` command while the bot is running.
-2. The question will be added to the currently selected category.
+4. **Додавання питань**  
+   Натисніть **"Додати питання"** і введіть своє запитання.  
 
 ---
 
-## 🎯 **Project Goal**
+## 🚀 **Команди**  
 
-The bot is designed to:
-- Facilitate mock interviews.
-- Improve communication and interviewing skills.
-- Serve as a fun team-building activity.
-
----
-
-## 🤝 **Contributing**
-
-To contribute to this project:
-1. Fork the repository.
-2. Create a new branch for your changes.
-3. Submit a Pull Request describing the enhancements.
+| **Команда**             | **Опис**                                 |  
+|-------------------------|-----------------------------------------|  
+| **/start**              | Запускає бота та відображає меню.       |  
+| **/question**           | Генерує 10 випадкових запитань.         |  
+| **/category <normal|blitz>** | Змінює категорію питань.         |  
+| **/add_question <текст>** | Додає ваше запитання до гри.          |  
+| **/set_roles**          | Кидає кубики для визначення ролей.      |  
 
 ---
 
-## 🛡️ **License**
+## 🎨 **Скріншоти**  
 
-This project is licensed under the **MIT License**.
+1. **Про бота**  
+   ![Про бота](img/about.png)  
+
+2. **Головне меню**  
+   ![Меню бота](img/menu.png)  
+
+3. **Вибір гравців (кидання кубиків)**  
+   ![Вибір гравців](img/players.png)  
+
+4. **Генерація запитань**  
+   ![Запитання](img/questions.png)  
+
+5. **Перемикання категорій**  
+   ![Перемикання категорій](img/switch_question_type.png)  
 
 ---
 
-If you have any questions or suggestions, feel free to reach out! 🚀
+## 🤝 **Для кого підходить?**  
+
+- **HR-фахівцям** для підготовки до співбесід.  
+- **Командам** для тімбілдингу.  
+- **Друзям** для веселих ігор і розмов.  
+
+---
+
+**Interview Game Bot** — це ваш новий помічник для веселих та корисних ігор! 🎉  
+
+---
+
+Збережи цей текст як `README.md` і додай файли зображень у папку `img`. Готово! 🚀
