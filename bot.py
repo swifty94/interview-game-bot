@@ -25,23 +25,29 @@ if not TOKEN:
 DB_PATH = "interview_questions.db"
 
 # ======================= Helper Functions ========================= #
-def get_random_question(category="normal"):
-    logger.debug(f"Fetching question for category '{category}'")
-    with sqlite3.connect(DB_PATH) as conn:
+def get_random_questions(category="normal", count=10, db_path=DB_PATH):
+    query = "SELECT text FROM questions WHERE category = ? ORDER BY RANDOM() LIMIT ?"
+    logger.debug(f"Executing SQL: {query} | Params: category={category}, count={count}")
+    logger.debug(f"Fetching {count} unique questions for category '{category}'")
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT text FROM questions WHERE category = ? ORDER BY RANDOM() LIMIT 1", 
-            (category,)
+            "SELECT text FROM questions WHERE category = ? ORDER BY RANDOM() LIMIT ?",
+            (category, count),
         )
-        result = cursor.fetchone()
-    return result[0] if result else "😕 No questions available in this category."
+        results = cursor.fetchall()
+    logger.info(f"Fetched {len(results)} questions from category '{category}'")
+    return [result[0] for result in results] if results else ["😕 No questions available in this category."]
+
 
 def add_question_to_db(text, category="normal", db_path=DB_PATH):
-    logger.info(f"Adding question '{text}' to category '{category}'")
+    query = "INSERT INTO questions (text, category) VALUES (?, ?)"
+    logger.debug(f"Executing SQL: {query} | Params: text='{text}', category='{category}'")
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("INSERT INTO questions (text, category) VALUES (?, ?)", (text, category))
         conn.commit()
+    logger.info(f"Added question '{text}' to category '{category}'")
 
 
 # ======================= Command Handlers ========================= #
@@ -56,9 +62,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     category = context.user_data.get("category", "normal")
-    question_text = get_random_question(category)
-    logger.info(f"User '{update.effective_user.username}' requested question in category '{category}'")
-    await update.message.reply_text(f"✨Категорія: {category}\n\n✨📝Питання: {question_text}")
+    questions = get_random_questions(category)
+    logger.info(f"User '{update.effective_user.username}' requested questions in category '{category}'")
+    questions_text = "\n\n".join([f"✨ {q}" for q in questions])
+    await update.message.reply_text(
+        f"✨Категорія: {category}\n\n📝 Питання:\n\n" + "\n\n".join([f"✨ {q}" for q in questions])
+    )
 
 async def set_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) != 1 or context.args[0] not in ["normal", "blitz"]:

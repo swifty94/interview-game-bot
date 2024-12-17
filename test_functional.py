@@ -49,16 +49,18 @@ async def test_question_command(mock_update, mock_context):
     mock_context.user_data["category"] = "normal"
     question_text = "Якби ви могли змінити один момент в історії України, що б це було?"  # Replace with an example
 
-    # Mock the get_random_question function
-    from bot import get_random_question
-    get_random_question_mock = MagicMock(return_value=question_text)
+    # Mock the get_random_questions function
+    from bot import get_random_questions
+    get_random_questions_mock = MagicMock(return_value=question_text)
 
     with pytest.MonkeyPatch().context() as monkeypatch:
-        monkeypatch.setattr("bot.get_random_question", get_random_question_mock)
+        monkeypatch.setattr("bot.get_random_questions", get_random_questions_mock)
         await question(mock_update, mock_context)
 
-    mock_update.message.reply_text.assert_called_once_with(f"✨Категорія: normal\n\n✨📝Питання: {question_text}")
-    get_random_question_mock.assert_called_once_with("normal")
+    mock_update.message.reply_text.assert_called_once_with(
+        f"✨Категорія: normal\n\n📝 Питання:\n\n" + "\n\n".join([f"✨ {q}" for q in question_text])
+    )
+    get_random_questions_mock.assert_called_once_with("normal")
 
 # ======================== Test /category Command ======================== #
 @pytest.mark.asyncio
