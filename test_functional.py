@@ -1,7 +1,19 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from bot import start, question, set_category, add_question
+import logging
 
+LOG_FORMAT = (
+    "%(asctime)s %(levelname)-5s [%(name)s] (%(threadName)s) %(message)s"
+)
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+# Set up the custom logger
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(LOG_FORMAT, DATE_FORMAT))
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
 # ======================== Fixtures ======================== #
 @pytest.fixture
 def mock_update():

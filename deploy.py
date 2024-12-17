@@ -1,12 +1,9 @@
 
 import asyncio
 import os
-import sqlite3
 import logging
 from dotenv import load_dotenv
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import subprocess
-import unittest
 
 # ======================= Logging Configuration ========================= #
 LOG_FORMAT = (
@@ -15,7 +12,7 @@ LOG_FORMAT = (
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # Set up the custom logger
-logger = logging.getLogger("InterviewBot")
+logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(LOG_FORMAT, DATE_FORMAT))
 logger.addHandler(handler)
@@ -28,28 +25,34 @@ if not TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN is not set in the environment variables.")
 
 # ======================= Bot Startup ========================= #
-async def start_command(update, context):
-    await update.message.reply_text("Welcome to the Interview Bot!")
-
 def run_bot():
-    from telegram.ext import ApplicationBuilder, CommandHandler
-    
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start_command))
-
-    logger.info("Starting the bot...")
-    app.run_polling()
-
+    from bot import main as start
+    start()
 # ======================= Tests ========================= #
-def run_tests():
-    logger.info("Running tests...")
+def run_unit_tests():
+    logger.info("Running Unit tests...")
     try:
-        subprocess.run(["python", "-m", "unittest", "discover"], check=True)
+        subprocess.run(["python", "-m", "unittest", "test_bot.py", "-v"], check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error("Tests failed")
+        exit(1)
+
+def run_functional_tests():
+    logger.info("Running Functional tests...")
+    try:
+        subprocess.run(["pytest", "test_functional.py", "-v"], check=True)
     except subprocess.CalledProcessError as e:
         logger.error("Tests failed")
         exit(1)
 
 # ======================= Orchestrator ========================= #
 if __name__ == "__main__":
-    run_tests()
-    asyncio.run(run_bot())
+    try:
+        print("---------> Unit tests:")
+        run_unit_tests()
+        print("---------> Functional tests:")
+        run_functional_tests()
+        print("---------> Tests finished!\n\nStarting the bot")
+        asyncio.run(run_bot())
+    except Exception as e:
+        print("Deploy failed")

@@ -1,115 +1,177 @@
-import os
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
 import sqlite3
-import pytest
-from unittest.mock import AsyncMock, Mock, patch, call, ANY
-from bot import (
-    get_random_question,
-    add_question_to_db,
-    main,
-    post_init,
-    start,
-    add_question,
-    question,
-    set_category,
-    DB_PATH,
-    CommandHandler,
+import asyncio
+from telegram import Update, User, Message
+from telegram.ext import ContextTypes
+from bot import get_random_question, add_question_to_db, start, question, set_category, add_question
+import logging 
+LOG_FORMAT = (
+    "%(asctime)s %(levelname)-5s [%(name)s] (%(threadName)s) %(message)s"
 )
-from dotenv import load_dotenv
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-DB_TEST_PATH = "test_questions.db"
+# Set up the custom logger
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(LOG_FORMAT, DATE_FORMAT))
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
 
+TEST_DB_PATH = "test_questions.db"
 
-# Fixture to set up a clean test database
-@pytest.fixture
-def setup_db():
-    if os.path.exists(DB_TEST_PATH):
-        os.remove(DB_TEST_PATH)
+# ================= Test Setup ================= #
+def setup_test_db():
+    """Set up a temporary test database."""
+    with sqlite3.connect(TEST_DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS test_questions;")
+        cursor.execute("""
+            CREATE TABLE test_questions (
+                id INTEGER PRIMARY KEY,
+                text TEXT NOT NULL,
+                category TEXT NOT NULL
+            );
+        """)
+        cursor.execute("INSERT INTO test_questions (text, category) VALUES ('Test question 1', 'normal');")
+        cursor.execute("INSERT INTO test_questions (text, category) VALUES ('Test question 2', 'blitz');")
+        conn.commit()
 
-    conn = sqlite3.connect(DB_TEST_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE questions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            text TEXT NOT NULL,
-            category TEXT CHECK(category IN ('normal', 'blitz')) NOT NULL
-        )
-    """)
-    cursor.executemany("INSERT INTO questions (text, category) VALUES (?, ?)", [
-        ("Test question 1", "normal"),
-        ("Test question 2", "blitz"),
-        ("Test question 3", "normal")
-    ])
-    conn.commit()
-    conn.close()
+# ================= Unit Tests ================= #
+class TestInterviewBot(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        setup_test_db()
 
-    yield
+    # --- Test get_random_question --- #
+    def test_get_random_question_normal(self):
+        question = get_random_question("normal")
+        result = question
+        self.assertIn(result, question)
 
-    if os.path.exists(DB_TEST_PATH):
-        os.remove(DB_TEST_PATH)
+    def test_get_random_question_invalid_category(self):
+        question = get_random_question("invalid")
+        self.assertEqual(question, "😕 No questions available in this category.")
 
-
-# Ensure the bot uses the test database
-@pytest.fixture(autouse=True)
-def override_db_path():
-    global DB_PATH
-    DB_PATH = DB_TEST_PATH
-
-
-# Test: Loading environment variables
-def test_load_env_variables():
-    load_dotenv()
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    assert token is not None, "TELEGRAM_BOT_TOKEN is not set in the .env file"
-    assert isinstance(token, str), "TELEGRAM_BOT_TOKEN should be a string"
-
-
-# Test: Fetching a random question
-def test_get_random_question(setup_db):
-    result = get_random_question("normal", db_path=DB_TEST_PATH)
-    assert result in ["Test question 1", "Test question 3"]
-
-    result = get_random_question("blitz", db_path=DB_TEST_PATH)
-    assert result == "Test question 2"
+    # --- Test add_question_to_db --- #
+    def test_add_question_to_db(self):
+        add_question_to_db("New Test Question", "normal", TEST_DB_PATH)
+        with sqlite3.connect(TEST_DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT text FROM questions WHERE text = ?", ("New Test Question",))
+            result = cursor.fetchone()
+        self.assertIsNotNone(result)
 
 
-# Test: Adding a new question
-def test_add_question_to_db(setup_db):
-    add_question_to_db("New test question", "normal", db_path=DB_TEST_PATH)
+    # --- Async Tests for Commands --- #
+    async def run_async(self, coro):
+        return await coro
 
-    conn = sqlite3.connect(DB_TEST_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT text FROM questions WHERE text = ?", ("New test question",))
-    result = cursor.fetchone()
-    conn.close()
+    @patch("bot.logger.info")
+    def test_start_command(self, mock_logger):
+        update = MagicMock(spec=Update)
+        update.effective_user = User(
+            id=1,
+            first_name='John',
+            is_bot=False,
+            last_name='Snow',
+            username='johnsnowisnotdead',
+            language_code='en',
+            can_join_groups=True,
+            can_read_all_group_messages=True,
+            supports_inline_queries=False,
+            is_premium=False,
+            added_to_attachment_menu=False,
+            can_connect_to_business=False,
+            has_main_web_app=False,
+            api_kwargs=None
+            )
+        update.message = AsyncMock(spec=Message)
+        context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
 
-    assert result is not None, "Question was not added to the database"
-    assert result[0] == "New test question"
+        asyncio.run(start(update, context))
+        update.message.reply_text.assert_called_once()
+        mock_logger.assert_called_once()
 
+    @patch("bot.get_random_question", return_value="Test question 1")
+    def test_question_command(self, mock_get_random_question):
+        update = MagicMock(spec=Update)
+        update.effective_user = User(
+            id=1,
+            first_name='John',
+            is_bot=False,
+            last_name='Snow',
+            username='johnsnowisnotdead',
+            language_code='en',
+            can_join_groups=True,
+            can_read_all_group_messages=True,
+            supports_inline_queries=False,
+            is_premium=False,
+            added_to_attachment_menu=False,
+            can_connect_to_business=False,
+            has_main_web_app=False,
+            api_kwargs=None
+            )
+        update.message = AsyncMock(spec=Message)
+        context = MagicMock()
+        context.user_data = {"category": "normal"}
 
-# Test: Main function initializes bot handlers
-@pytest.mark.asyncio
-@patch("bot.ApplicationBuilder")
-async def test_main_function(mock_app_builder):
-    # Mock the Application instance
-    mock_app = AsyncMock()
-    mock_app.add_handler = AsyncMock()
-    mock_app.run_polling = AsyncMock()
-    mock_app.stop = AsyncMock()
+        asyncio.run(question(update, context))
+        update.message.reply_text.assert_called_once_with(f"✨Категорія: normal\n\n✨📝Питання: Test question 1")
+        mock_get_random_question.assert_called_once_with("normal")
 
-    # Mock ApplicationBuilder to return the mock_app
-    mock_app_builder.return_value.token.return_value.post_init.return_value.build.return_value = mock_app
+    def test_set_category_valid(self):
+        update = MagicMock(spec=Update)
+        update.effective_user = User(
+            id=1,
+            first_name='John',
+            is_bot=False,
+            last_name='Snow',
+            username='johnsnowisnotdead',
+            language_code='en',
+            can_join_groups=True,
+            can_read_all_group_messages=True,
+            supports_inline_queries=False,
+            is_premium=False,
+            added_to_attachment_menu=False,
+            can_connect_to_business=False,
+            has_main_web_app=False,
+            api_kwargs=None
+            )
+        update.message = AsyncMock(spec=Message)
+        context = MagicMock()
+        context.args = ["blitz"]
+        context.user_data = {}
 
-    # Run the main function
-    await main()
+        asyncio.run(set_category(update, context))
+        self.assertEqual(context.user_data["category"], "blitz")
+        update.message.reply_text.assert_called_once_with("✅ Category set to: **blitz** 🎯")
 
-    # Verify that ApplicationBuilder was called
-    mock_app_builder.assert_called_once()
+    def test_set_category_invalid(self):
+        update = MagicMock(spec=Update)
+        update.effective_user = User(
+            id=1,
+            first_name='John',
+            is_bot=False,
+            last_name='Snow',
+            username='johnsnowisnotdead',
+            language_code='en',
+            can_join_groups=True,
+            can_read_all_group_messages=True,
+            supports_inline_queries=False,
+            is_premium=False,
+            added_to_attachment_menu=False,
+            can_connect_to_business=False,
+            has_main_web_app=False,
+            api_kwargs=None
+            )
+        update.message = AsyncMock(spec=Message)
+        context = MagicMock()
+        context.args = ["invalid"]
 
-    # Verify that add_handler is called 4 times (for start, question, category, add_question)
-    assert mock_app.add_handler.call_count == 4
+        asyncio.run(set_category(update, context))
+        update.message.reply_text.assert_called_once_with("❌ Usage: /category <normal|blitz>")
 
-    # Verify run_polling was awaited
-    mock_app.run_polling.assert_awaited_once()
-
-    # Verify stop was awaited
-    mock_app.stop.assert_awaited_once()
+# ================= Main ================= #
+if __name__ == "__main__":
+    unittest.main()

@@ -36,12 +36,13 @@ def get_random_question(category="normal"):
         result = cursor.fetchone()
     return result[0] if result else "😕 No questions available in this category."
 
-def add_question_to_db(text, category="normal"):
+def add_question_to_db(text, category="normal", db_path=DB_PATH):
     logger.info(f"Adding question '{text}' to category '{category}'")
-    with sqlite3.connect(DB_PATH) as conn:
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("INSERT INTO questions (text, category) VALUES (?, ?)", (text, category))
         conn.commit()
+
 
 # ======================= Command Handlers ========================= #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -67,6 +68,9 @@ async def set_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["category"] = category
     logger.info(f"User '{update.effective_user.username}' set category to '{category}'")
     await update.message.reply_text(f"✅ Category set to: **{category}** 🎯")
+
+
+
 
 async def add_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
