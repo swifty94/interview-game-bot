@@ -57,7 +57,7 @@ async def question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     category = context.user_data.get("category", "normal")
     question_text = get_random_question(category)
     logger.info(f"User '{update.effective_user.username}' requested question in category '{category}'")
-    await update.message.reply_text(f"📝 **Your Question**: {question_text}")
+    await update.message.reply_text(f"✨Категорія: {category}\n\n✨📝Питання: {question_text}")
 
 async def set_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) != 1 or context.args[0] not in ["normal", "blitz"]:

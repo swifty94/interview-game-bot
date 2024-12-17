@@ -1,51 +1,109 @@
-import os
 import pytest
-import asyncio
-from unittest.mock import AsyncMock
-from bot import start, question, set_category
-from telegram import Update, Message, User, Chat
-from telegram.ext import ContextTypes
+from unittest.mock import AsyncMock, MagicMock
+from bot import start, question, set_category, add_question
 
-# Mock Update and Context objects for testing
+# ======================== Fixtures ======================== #
 @pytest.fixture
 def mock_update():
-    user = User(id=12345, is_bot=False, first_name="TestUser")
-    chat = Chat(id=12345, type="private")
-    message = Message(message_id=1, date=None, chat=chat, text="", from_user=user)
-    update = Update(update_id=1, message=message)
+    """Mock Telegram Update object."""
+    update = MagicMock()
+    update.effective_user.username = "test_user"
+    update.message.reply_text = AsyncMock()
     return update
 
 @pytest.fixture
 def mock_context():
-    return AsyncMock(ContextTypes.DEFAULT_TYPE)
+    """Mock Telegram Context object."""
+    context = MagicMock()
+    context.user_data = {}
+    context.args = []
+    return context
 
-# Test the /start command
+# ======================== Test /start Command ======================== #
 @pytest.mark.asyncio
 async def test_start_command(mock_update, mock_context):
-    mock_update.message.text = "/start"
-    await start(mock_update, mock_context)
-    mock_context.bot.send_message.assert_called_once_with(
-        chat_id=mock_update.message.chat_id,
-        text="Welcome to Interview Game Bot! 🎙️\n"
-             "Use /question to get a random question.\n"
-             "Use /category <normal|blitz> to change question category.\n"
-             "Use /add_question <your_question> to add a custom question."
+    expected_output = (
+        "🎙️ Welcome to the **Interview Game Bot**! 🎉\n\n"
+        "✨ Use /question to get a random question.\n"
+        "✨ Use /category <normal|blitz> to change question category.\n"
+        "✨ Use /add_question <your_question> to add a custom question. ✅"
     )
+    await start(mock_update, mock_context)
+    mock_update.message.reply_text.assert_called_once_with(expected_output)
 
-# Test the /question command
+# ======================== Test /question Command ======================== #
 @pytest.mark.asyncio
 async def test_question_command(mock_update, mock_context):
-    mock_update.message.text = "/question"
-    await question(mock_update, mock_context)
-    mock_context.bot.send_message.assert_called()
+    mock_context.user_data["category"] = "normal"
+    question_text = "Якби ви могли змінити один момент в історії України, що б це було?"  # Replace with an example
 
-# Test the /category command
+    # Mock the get_random_question function
+    from bot import get_random_question
+    get_random_question_mock = MagicMock(return_value=question_text)
+
+    with pytest.MonkeyPatch().context() as monkeypatch:
+        monkeypatch.setattr("bot.get_random_question", get_random_question_mock)
+        await question(mock_update, mock_context)
+
+    mock_update.message.reply_text.assert_called_once_with(f"✨Категорія: normal\n\n✨📝Питання: {question_text}")
+    get_random_question_mock.assert_called_once_with("normal")
+
+# ======================== Test /category Command ======================== #
 @pytest.mark.asyncio
-async def test_category_command(mock_update, mock_context):
-    mock_update.message.text = "/category blitz"
+async def test_set_category_command_valid(mock_update, mock_context):
     mock_context.args = ["blitz"]
+    expected_output = "✅ Category set to: **blitz** 🎯"
+    
     await set_category(mock_update, mock_context)
-    mock_context.bot.send_message.assert_called_once_with(
-        chat_id=mock_update.message.chat_id,
-        text="Category set to: blitz"
-    )
+    mock_update.message.reply_text.assert_called_once_with(expected_output)
+    assert mock_context.user_data["category"] == "blitz"
+
+@pytest.mark.asyncio
+async def test_set_category_command_invalid(mock_update, mock_context):
+    mock_context.args = ["invalid"]
+    expected_output = "❌ Usage: /category <normal|blitz>"
+    
+    await set_category(mock_update, mock_context)
+    mock_update.message.reply_text.assert_called_once_with(expected_output)
+    assert "category" not in mock_context.user_data
+
+# ======================== Test /add_question Command ======================== #
+@pytest.mark.asyncio
+async def test_add_question_command_valid(mock_update, mock_context):
+    mock_context.args = ["путін", "-", "хуйло?"]  # Replace with an example
+    expected_output = "✅ Your question has been added! 🥳"
+    
+    # Mock the add_question_to_db function
+    from bot import add_question_to_db
+    add_question_mock = MagicMock()
+    
+    with pytest.MonkeyPatch().context() as monkeypatch:
+        monkeypatch.setattr("bot.add_question_to_db", add_question_mock)
+        await add_question(mock_update, mock_context)
+    
+    mock_update.message.reply_text.assert_called_once_with(expected_output)
+    add_question_mock.assert_called_once_with("путін - хуйло?", "normal")
+
+@pytest.mark.asyncio
+async def test_add_question_command_invalid(mock_update, mock_context):
+    mock_context.args = []
+    expected_output = "❌ Usage: /add_question <your_question>"
+    
+    await add_question(mock_update, mock_context)
+    mock_update.message.reply_text.assert_called_once_with(expected_output)
+
+# ======================== Custom Test Summary ======================== #
+@pytest.fixture
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Add a custom summary at the end of pytest output."""
+    total = terminalreporter._numcollected
+    passed = len([report for report in terminalreporter.stats.get("passed", [])])
+    failed = len([report for report in terminalreporter.stats.get("failed", [])])
+    skipped = len([report for report in terminalreporter.stats.get("skipped", [])])
+
+    print("\n================ Custom Test Summary ================")
+    print(f"Total Tests:    {total}")
+    print(f"✅ Passed:      {passed}")
+    print(f"❌ Failed:      {failed}")
+    print(f"⚠️  Skipped:     {skipped}")
+    print("=====================================================")
