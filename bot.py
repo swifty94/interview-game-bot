@@ -1,52 +1,43 @@
-import os
-import sqlite3
 import random
-import logging
+from utils import *
 from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# ======================= Logging Configuration ========================= #
-LOG_FORMAT = "%(asctime)s %(levelname)-5s [%(name)s] %(message)s"
+LOG_FORMAT = "[%(asctime)s] [%(levelname)-5s] [%(name)s] [%(funcName)s] [%(message)s] [line:%(lineno)d]"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-logger = logging.getLogger("InterviewBot")
+logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(LOG_FORMAT, DATE_FORMAT))
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
-# ======================= Load Environment Variables ========================= #
-load_dotenv()
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-if not TOKEN:
-    raise ValueError("TELEGRAM_BOT_TOKEN is not set in the environment variables.")
+# ======================= Bot Logic ========================= #
 
-DB_PATH = "interview_questions.db"
+async def roll_dice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Roll dice to determine roles."""
+    await update.message.reply_text("🎲 Введіть імена двох гравців через кому (наприклад: Андрій, Олена).")
+    context.user_data["awaiting_players"] = True
 
-# ======================= Helper Functions ========================= #
-def get_random_questions(category="normal", count=10, db_path=DB_PATH):
-    """Fetch 10 unique random questions from the database."""
-    query = "SELECT text FROM questions WHERE category = ? ORDER BY RANDOM() LIMIT ?"
-    logger.debug(f"Executing SQL: {query} | Params: category={category}, count={count}")
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query, (category, count))
-        results = cursor.fetchall()
-    logger.info(f"Fetched {len(results)} questions from category '{category}'")
-    return [result[0] for result in results] if results else ["😕 Питання для цієї категорії відсутні."]
-
-def add_question_to_db(text, category="normal", db_path=DB_PATH):
-    """Add a question to the database."""
-    query = "INSERT INTO questions (text, category) VALUES (?, ?)"
-    logger.debug(f"Executing SQL: {query} | Params: text='{text}', category='{category}'")
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query, (text, category))
-        conn.commit()
-    logger.info(f"Added question '{text}' to category '{category}'")
-
-# ======================= Command Handlers ========================= #
+async def process_names(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get("awaiting_players"):
+        names = update.message.text.split(",")
+        if len(names) != 2:
+            await update.message.reply_text("❌ Введіть рівно два імені через кому.")
+            return
+        player1, player2 = names[0].strip(), names[1].strip()
+        roll1, roll2 = random.randint(1, 6), random.randint(1, 6)
+        logger.info(f"Rolled dice: {player1}={roll1}, {player2}={roll2}")
+        if roll1 > roll2:
+            roles = f"🎉 **{player1}** - Інтерв'юер!\n🎤 **{player2}** - Гість!"
+        elif roll2 > roll1:
+            roles = f"🎉 **{player2}** - Інтерв'юер!\n🎤 **{player1}** - Гість!"
+        else:
+            roles = "🤝 Нічия! Кидайте кубики ще раз."
+        await update.message.reply_text(f"🎲 Результати кидка:\n🎲 {player1}: {roll1}\n🎲 {player2}: {roll2}\n\n{roles}")
+        context.user_data["awaiting_players"] = False
+        await send_main_menu(update)
 async def send_main_menu(update: Update):
     """Send main menu buttons."""
     keyboard = [
@@ -95,30 +86,6 @@ async def add_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Ваше питання було додано! 🥳")
     await send_main_menu(update)
 
-async def roll_dice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Roll dice to determine roles."""
-    await update.message.reply_text("🎲 Введіть імена двох гравців через кому (наприклад: Андрій, Олена).")
-    context.user_data["awaiting_players"] = True
-
-async def process_names(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get("awaiting_players"):
-        names = update.message.text.split(",")
-        if len(names) != 2:
-            await update.message.reply_text("❌ Введіть рівно два імені через кому.")
-            return
-        player1, player2 = names[0].strip(), names[1].strip()
-        roll1, roll2 = random.randint(1, 6), random.randint(1, 6)
-        logger.info(f"Rolled dice: {player1}={roll1}, {player2}={roll2}")
-        if roll1 > roll2:
-            roles = f"🎉 **{player1}** - Інтерв'юер!\n🎤 **{player2}** - Гість!"
-        elif roll2 > roll1:
-            roles = f"🎉 **{player2}** - Інтерв'юер!\n🎤 **{player1}** - Гість!"
-        else:
-            roles = "🤝 Нічия! Кидайте кубики ще раз."
-        await update.message.reply_text(f"🎲 Результати кидка:\n🎲 {player1}: {roll1}\n🎲 {player2}: {roll2}\n\n{roles}")
-        context.user_data["awaiting_players"] = False
-        await send_main_menu(update)
-
 # ======================= Main Function ========================= #
 def main():
     logger.info("++++++++++++++++" + "Starting InterviewBot" + "++++++++++++++++")
@@ -134,6 +101,3 @@ def main():
 
     logger.info("++++++++++++++++" + "InterviewBot is now UP and Polling!" + "++++++++++++++++")
     app.run_polling()
-
-if __name__ == "__main__":
-    main()
